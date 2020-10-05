@@ -13,6 +13,7 @@ winit = "0.23"
 ultraviolet = "0.7"
 env_logger = "0.7"
 futures = "0.3"
+bytemuck = "1.4"
 
 [build-dependencies]
 anyhow = "1.0"

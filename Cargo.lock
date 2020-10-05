@@ -780,6 +780,7 @@ name = "line-monsters"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bytemuck",
  "ellecs",
  "env_logger",
  "fs_extra",

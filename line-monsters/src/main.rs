@@ -1,8 +1,55 @@
+use wgpu::util::DeviceExt;
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},
     window::{Window, WindowBuilder},
 };
+
+unsafe impl bytemuck::Pod for Vertex {}
+unsafe impl bytemuck::Zeroable for Vertex {}
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct Vertex {
+    position: [f32; 3],
+    color: [f32; 3],
+}
+
+impl Vertex {
+    fn descriptor<'a>() -> wgpu::VertexBufferDescriptor<'a> {
+        wgpu::VertexBufferDescriptor {
+            stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
+            step_mode: wgpu::InputStepMode::Vertex,
+            attributes: &[
+                wgpu::VertexAttributeDescriptor {
+                    offset: 0,
+                    shader_location: 0,
+                    format: wgpu::VertexFormat::Float3,
+                },
+                wgpu::VertexAttributeDescriptor {
+                    offset: std::mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
+                    shader_location: 1,
+                    format: wgpu::VertexFormat::Float3,
+                },
+            ],
+        }
+    }
+}
+
+pub const VERTICES: &[Vertex] = &[
+    Vertex {
+        position: [0.0, 0.5, 0.0],
+        color: [1.0, 0.0, 0.0],
+    },
+    Vertex {
+        position: [-0.5, -0.5, 0.0],
+        color: [0.0, 1.0, 0.0],
+    },
+    Vertex {
+        position: [0.5, -0.5, 0.0],
+        color: [0.0, 0.0, 1.0],
+    },
+];
 
 struct State {
     surface: wgpu::Surface,
@@ -13,6 +60,9 @@ struct State {
     size: winit::dpi::PhysicalSize<u32>,
 
     render_pipeline: wgpu::RenderPipeline,
+
+    vertex_buffer: wgpu::Buffer,
+    num_vertices: u32,
 }
 
 impl State {
@@ -91,12 +141,20 @@ impl State {
             depth_stencil_state: None,
             vertex_state: wgpu::VertexStateDescriptor {
                 index_format: wgpu::IndexFormat::Uint16,
-                vertex_buffers: &[],
+                vertex_buffers: &[Vertex::descriptor()],
             },
             sample_count: 1,
             sample_mask: !0,
             alpha_to_coverage_enabled: false,
         });
+
+        // Buffers
+        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Vertex Buffer"),
+            contents: bytemuck::cast_slice(VERTICES),
+            usage: wgpu::BufferUsage::VERTEX,
+        });
+        let num_vertices = VERTICES.len() as u32;
 
         Self {
             surface,
@@ -107,6 +165,9 @@ impl State {
             size,
 
             render_pipeline,
+
+            vertex_buffer,
+            num_vertices,
         }
     }
 
@@ -153,9 +214,10 @@ impl State {
             depth_stencil_attachment: None,
         });
         render_pass.set_pipeline(&self.render_pipeline);
-        render_pass.draw(0..3, 0..1);
-        drop(render_pass);
+        render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+        render_pass.draw(0..self.num_vertices, 0..1);
 
+        drop(render_pass);
         self.queue.submit(std::iter::once(encoder.finish()));
     }
 }
