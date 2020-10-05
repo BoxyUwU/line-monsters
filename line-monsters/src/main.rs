@@ -184,12 +184,16 @@ impl State {
 
     fn update(&mut self) {}
 
-    fn render(&mut self) {
-        let frame = self
-            .swap_chain
-            .get_current_frame()
-            .expect("Timeout getting texture")
-            .output;
+    fn render(&mut self, window: &Window) {
+        let frame = self.swap_chain.get_current_frame();
+        let frame = match frame {
+            Result::Err(wgpu::SwapChainError::Outdated) => {
+                self.resize(window.inner_size());
+                self.swap_chain.get_current_frame().unwrap().output
+            }
+            Result::Ok(swap_chain) => swap_chain.output,
+            _ => panic!("Timeout getting texture"),
+        };
 
         let mut encoder = self
             .device
@@ -247,12 +251,6 @@ fn main() {
                         } => *control_flow = ControlFlow::Exit,
                         _ => {}
                     },
-                    WindowEvent::Resized(physical_size) => {
-                        state.resize(*physical_size);
-                    }
-                    WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                        state.resize(**new_inner_size);
-                    }
                     _ => {}
                 }
             }
@@ -262,7 +260,7 @@ fn main() {
         }
         Event::RedrawRequested(_) => {
             state.update();
-            state.render();
+            state.render(&window);
         }
         _ => {}
     });
