@@ -187,11 +187,17 @@ impl Vertex {
 
 #[rustfmt::skip]
 const VERTICES: &[Vertex] = &[
-    Vertex { position: [-0.0868241, 0.49240386, 0.0], tex_coords: [0.4131759, 1.- 0.99240386], }, // A
-    Vertex { position: [-0.49513406, 0.06958647, 0.0], tex_coords: [0.0048659444, 1.- 0.56958646], }, // B
-    Vertex { position: [-0.21918549, -0.44939706, 0.0], tex_coords: [0.28081453, 1.- 0.050602943], }, // C
-    Vertex { position: [0.35966998, -0.3473291, 0.0], tex_coords: [0.85967, 1.- 0.15267089], }, // D
-    Vertex { position: [0.44147372, 0.2347359, 0.0], tex_coords: [0.9414737, 1.- 0.7347359], }, // E
+    Vertex { position: [-0.0868241 * 0.5, 0.49240386 * 0.5, 1.0], tex_coords: [0.4131759, 1.- 0.99240386], },
+    Vertex { position: [-0.49513406 * 0.5, 0.06958647 * 0.5, 1.0], tex_coords: [0.0048659444, 1.- 0.56958646], },
+    Vertex { position: [-0.21918549 * 0.5, -0.44939706 * 0.5, 1.0], tex_coords: [0.28081453, 1.- 0.050602943], },
+    Vertex { position: [0.35966998 * 0.5, -0.3473291 * 0.5, 1.0], tex_coords: [0.85967, 1.- 0.15267089], },
+    Vertex { position: [0.44147372 * 0.5, 0.2347359 * 0.5, 1.0], tex_coords: [0.9414737, 1.- 0.7347359], },
+
+    Vertex { position: [-0.0868241, 0.49240386, 0.0], tex_coords: [0.4131759, 1.- 0.99240386], },
+    Vertex { position: [-0.49513406, 0.06958647, 0.0], tex_coords: [0.0048659444, 1.- 0.56958646], },
+    Vertex { position: [-0.21918549, -0.44939706, 0.0], tex_coords: [0.28081453, 1.- 0.050602943], },
+    Vertex { position: [0.35966998, -0.3473291, 0.0], tex_coords: [0.85967, 1.- 0.15267089], },
+    Vertex { position: [0.44147372, 0.2347359, 0.0], tex_coords: [0.9414737, 1.- 0.7347359], },
 ];
 
 #[rustfmt::skip]
@@ -199,6 +205,10 @@ const INDICES: &[u16] = &[
     0, 1, 4,
     1, 2, 4,
     2, 3, 4,
+
+    5, 6, 9,
+    6, 7, 9,
+    7, 8, 9,
 ];
 
 struct State {
@@ -229,6 +239,8 @@ struct State {
     uniform_bind_group: wgpu::BindGroup,
 
     camera_controller: CameraController,
+
+    depth_texture: texture::Texture,
 }
 
 impl State {
@@ -314,7 +326,7 @@ impl State {
         // Camera
 
         let camera = Camera {
-            eye: Vec3::new(0.0, 1.0, 2.0),
+            eye: Vec3::new(0.0, 5.0, 5.0),
             target: Vec3::new(0.0, 0.0, 0.0),
             up: Vec3::unit_y(),
             aspect: sc_desc.width as f32 / sc_desc.height as f32,
@@ -394,7 +406,12 @@ impl State {
                 write_mask: wgpu::ColorWrite::ALL,
             }],
             primitive_topology: wgpu::PrimitiveTopology::TriangleList,
-            depth_stencil_state: None,
+            depth_stencil_state: Some(wgpu::DepthStencilStateDescriptor {
+                format: texture::Texture::DEPTH_FORMAT,
+                depth_write_enabled: true,
+                depth_compare: wgpu::CompareFunction::Less,
+                stencil: wgpu::StencilStateDescriptor::default(),
+            }),
             vertex_state: wgpu::VertexStateDescriptor {
                 index_format: wgpu::IndexFormat::Uint16,
                 vertex_buffers: &[Vertex::descriptor()],
@@ -421,6 +438,9 @@ impl State {
 
         let camera_controller = CameraController::new(0.2);
 
+        let depth_texture =
+            texture::Texture::create_depth_texture(&device, &sc_desc, "depth_texture");
+
         Self {
             surface,
             device,
@@ -445,6 +465,8 @@ impl State {
             uniform_bind_group,
 
             camera_controller,
+
+            depth_texture,
         }
     }
 
@@ -453,6 +475,9 @@ impl State {
         self.sc_desc.width = new_size.width;
         self.sc_desc.height = new_size.height;
         self.swap_chain = self.device.create_swap_chain(&self.surface, &self.sc_desc);
+
+        self.depth_texture =
+            texture::Texture::create_depth_texture(&self.device, &self.sc_desc, "depth_texture");
     }
 
     fn input(&mut self, event: &WindowEvent) -> bool {
@@ -500,7 +525,14 @@ impl State {
                     store: true,
                 },
             }],
-            depth_stencil_attachment: None,
+            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
+                attachment: &self.depth_texture.view,
+                depth_ops: Some(wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(1.0),
+                    store: true,
+                }),
+                stencil_ops: None,
+            }),
         });
         render_pass.set_pipeline(&self.render_pipeline);
 
