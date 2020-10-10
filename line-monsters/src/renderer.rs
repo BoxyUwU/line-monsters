@@ -1,4 +1,3 @@
-pub mod context;
 pub mod spritebatch;
 pub mod texture;
 
@@ -33,7 +32,6 @@ pub struct State {
 
     depth_texture: texture::Texture,
 
-    context: context::Context,
     spritebatch: spritebatch::Spritebatch,
 }
 
@@ -76,15 +74,11 @@ impl State {
         let swap_chain = device.create_swap_chain(&surface, &sc_desc);
 
         // Texture
-        let mut context = context::Context::new();
-
         let tree_bytes = include_bytes!("res/tree.png");
-        let tree_texture =
-            texture::Texture::from_bytes(&device, &queue, tree_bytes, "tree.png", &mut context);
+        let tree_texture = texture::Texture::from_bytes(&device, &queue, tree_bytes, "tree.png");
 
         let test2_bytes = include_bytes!("res/test2.png");
-        let test2_texture =
-            texture::Texture::from_bytes(&device, &queue, test2_bytes, "test2.png", &mut context);
+        let test2_texture = texture::Texture::from_bytes(&device, &queue, test2_bytes, "test2.png");
 
         let diffuse_bind_group_layout = texture::Texture::create_bind_group_layout(&device);
 
@@ -189,12 +183,8 @@ impl State {
 
         let camera_controller = CameraController::new(0.2);
 
-        let depth_texture = texture::Texture::create_depth_texture(
-            &device,
-            &sc_desc,
-            "depth_texture",
-            &mut context,
-        );
+        let depth_texture =
+            texture::Texture::create_depth_texture(&device, &sc_desc, "depth_texture");
 
         let spritebatch = spritebatch::Spritebatch::new(device.clone());
 
@@ -221,7 +211,6 @@ impl State {
 
             depth_texture,
 
-            context,
             spritebatch,
         }
     }
@@ -232,12 +221,8 @@ impl State {
         self.sc_desc.height = new_size.height;
         self.swap_chain = self.device.create_swap_chain(&self.surface, &self.sc_desc);
 
-        self.depth_texture = texture::Texture::create_depth_texture(
-            &self.device,
-            &self.sc_desc,
-            "depth_texture",
-            &mut self.context,
-        );
+        self.depth_texture =
+            texture::Texture::create_depth_texture(&self.device, &self.sc_desc, "depth_texture");
     }
 
     pub fn input(&mut self, event: &WindowEvent) -> bool {

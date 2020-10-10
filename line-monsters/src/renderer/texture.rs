@@ -8,7 +8,6 @@ pub struct Texture {
     pub view: wgpu::TextureView,
     pub sampler: wgpu::Sampler,
     pub size: wgpu::Extent3d,
-    pub id: u64,
 }
 
 impl Texture {
@@ -17,10 +16,9 @@ impl Texture {
         queue: &wgpu::Queue,
         bytes: &[u8],
         label: &str,
-        ctx: &mut super::context::Context,
     ) -> Arc<Self> {
         let img = image::load_from_memory(bytes).unwrap();
-        Self::from_image(device, queue, &img, Some(label), ctx)
+        Self::from_image(device, queue, &img, Some(label))
     }
 
     pub fn from_image(
@@ -28,11 +26,7 @@ impl Texture {
         queue: &wgpu::Queue,
         img: &image::DynamicImage,
         label: Option<&str>,
-        ctx: &mut super::context::Context,
     ) -> Arc<Self> {
-        let id = ctx.texture_ids;
-        ctx.texture_ids += 1;
-
         let rgba = img.as_rgba8().unwrap();
         let dimensions = img.dimensions();
 
@@ -82,7 +76,6 @@ impl Texture {
             view,
             sampler,
             size,
-            id,
         })
     }
 }
@@ -94,11 +87,7 @@ impl Texture {
         device: &wgpu::Device,
         sc_desc: &wgpu::SwapChainDescriptor,
         label: &str,
-        ctx: &mut super::context::Context,
     ) -> Self {
-        let id = ctx.texture_ids;
-        ctx.texture_ids += 1;
-
         let size = wgpu::Extent3d {
             width: sc_desc.width,
             height: sc_desc.height,
@@ -134,7 +123,6 @@ impl Texture {
             view,
             sampler,
             size,
-            id,
         }
     }
 }

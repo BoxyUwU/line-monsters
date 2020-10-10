@@ -36,7 +36,7 @@ impl Spritebatch {
         assert!(self.indices.len() + 6 <= u32::MAX as usize);
 
         if let Some(cur_texture) = &self.current_texture {
-            if cur_texture.id != texture.id {
+            if Arc::ptr_eq(&cur_texture, &texture) == false {
                 self.flush_to_buffer(Some(Arc::clone(&texture)));
             }
         } else {
