@@ -370,8 +370,8 @@ impl State {
         });
 
         // Render pipeline
-        let vs_module = device.create_shader_module(wgpu::include_spirv!("shader.vert.spv"));
-        let fs_module = device.create_shader_module(wgpu::include_spirv!("shader.frag.spv"));
+        let vs_module = device.create_shader_module(wgpu::include_spirv!("res/shader.vert.spv"));
+        let fs_module = device.create_shader_module(wgpu::include_spirv!("res/shader.frag.spv"));
 
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {

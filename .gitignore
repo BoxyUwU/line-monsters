@@ -7,7 +7,7 @@
 **/*.rs.bk
 
 # Compiled shaders
-**/*.spv
+res/**/*.spv
 
 # VSCode
 .vscode/*
