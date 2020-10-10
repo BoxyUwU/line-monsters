@@ -1,3 +1,6 @@
+use std::sync::Arc;
+
+use ultraviolet::{Mat4, Vec3};
 use wgpu::util::DeviceExt;
 use winit::{
     event::*,
@@ -5,109 +8,12 @@ use winit::{
     window::{Window, WindowBuilder},
 };
 
-use ultraviolet::Mat4;
-use ultraviolet::Vec3;
+mod camera;
+use camera::{Camera, CameraController};
 
+mod context;
+mod spritebatch;
 mod texture;
-
-struct CameraController {
-    speed: f32,
-    is_up_pressed: bool,
-    is_down_pressed: bool,
-    is_forward_pressed: bool,
-    is_backward_pressed: bool,
-    is_left_pressed: bool,
-    is_right_pressed: bool,
-}
-
-impl CameraController {
-    fn new(speed: f32) -> Self {
-        Self {
-            speed,
-            is_up_pressed: false,
-            is_down_pressed: false,
-            is_forward_pressed: false,
-            is_backward_pressed: false,
-            is_left_pressed: false,
-            is_right_pressed: false,
-        }
-    }
-
-    fn process_events(&mut self, event: &WindowEvent) -> bool {
-        match event {
-            WindowEvent::KeyboardInput {
-                input:
-                    KeyboardInput {
-                        state,
-                        virtual_keycode: Some(keycode),
-                        ..
-                    },
-                ..
-            } => {
-                let is_pressed = *state == ElementState::Pressed;
-                match keycode {
-                    VirtualKeyCode::Space => {
-                        self.is_up_pressed = is_pressed;
-                        true
-                    }
-                    VirtualKeyCode::LShift => {
-                        self.is_down_pressed = is_pressed;
-                        true
-                    }
-                    VirtualKeyCode::W | VirtualKeyCode::Up => {
-                        self.is_forward_pressed = is_pressed;
-                        true
-                    }
-                    VirtualKeyCode::A | VirtualKeyCode::Left => {
-                        self.is_left_pressed = is_pressed;
-                        true
-                    }
-                    VirtualKeyCode::S | VirtualKeyCode::Down => {
-                        self.is_backward_pressed = is_pressed;
-                        true
-                    }
-                    VirtualKeyCode::D | VirtualKeyCode::Right => {
-                        self.is_right_pressed = is_pressed;
-                        true
-                    }
-                    _ => false,
-                }
-            }
-            _ => false,
-        }
-    }
-
-    fn update_camera(&self, camera: &mut Camera) {
-        let forward: Vec3 = camera.target - camera.eye;
-        let forward_norm = forward.normalized();
-        let forward_mag = forward.mag();
-
-        // Prevents glitching when camera gets too close to the
-        // center of the scene.
-        if self.is_forward_pressed && forward_mag > self.speed {
-            camera.eye += forward_norm * self.speed;
-        }
-        if self.is_backward_pressed {
-            camera.eye -= forward_norm * self.speed;
-        }
-
-        let right = forward_norm.cross(camera.up);
-
-        // Redo radius calc in case the up/ down is pressed.
-        let forward = camera.target - camera.eye;
-        let forward_mag = forward.mag();
-
-        if self.is_right_pressed {
-            // Rescale the distance between the target and eye so
-            // that it doesn't change. The eye therefore still
-            // lies on the circle made by the target and eye.
-            camera.eye = camera.target - (forward - right * self.speed).normalized() * forward_mag;
-        }
-        if self.is_left_pressed {
-            camera.eye = camera.target - (forward + right * self.speed).normalized() * forward_mag;
-        }
-    }
-}
 
 unsafe impl bytemuck::Pod for Uniforms {}
 unsafe impl bytemuck::Zeroable for Uniforms {}
@@ -127,30 +33,6 @@ impl Uniforms {
 
     fn update_view_proj(&mut self, camera: &Camera) {
         self.view_proj = camera.build_view_projection_matrix();
-    }
-}
-
-pub struct Camera {
-    eye: Vec3,
-    target: Vec3,
-    up: Vec3,
-    aspect: f32,
-    /// Radians
-    fov_y: f32,
-    z_near: f32,
-    z_far: f32,
-}
-
-impl Camera {
-    fn build_view_projection_matrix(&self) -> Mat4 {
-        let view = Mat4::look_at(self.eye, self.target, self.up);
-        let proj = ultraviolet::projection::rh_yup::perspective_wgpu_dx(
-            self.fov_y,
-            self.aspect,
-            self.z_near,
-            self.z_far,
-        );
-        proj * view
     }
 }
 
@@ -213,7 +95,7 @@ const INDICES: &[u16] = &[
 
 struct State {
     surface: wgpu::Surface,
-    device: wgpu::Device,
+    device: Arc<wgpu::Device>,
     queue: wgpu::Queue,
     sc_desc: wgpu::SwapChainDescriptor,
     swap_chain: wgpu::SwapChain,
@@ -221,12 +103,15 @@ struct State {
 
     render_pipeline: wgpu::RenderPipeline,
 
+    #[allow(dead_code)]
     vertex_buffer: wgpu::Buffer,
+    #[allow(dead_code)]
     index_buffer: wgpu::Buffer,
+    #[allow(dead_code)]
     num_indices: u32,
 
+    diffuse_texture: Arc<texture::Texture>,
     #[allow(dead_code)]
-    diffuse_texture: texture::Texture,
     diffuse_bind_group: wgpu::BindGroup,
 
     #[allow(dead_code)]
@@ -241,6 +126,9 @@ struct State {
     camera_controller: CameraController,
 
     depth_texture: texture::Texture,
+
+    context: context::Context,
+    spritebatch: spritebatch::Spritebatch,
 }
 
 impl State {
@@ -270,6 +158,8 @@ impl State {
             .await
             .unwrap();
 
+        let device = Arc::new(device);
+
         let sc_desc = wgpu::SwapChainDescriptor {
             usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
             format: wgpu::TextureFormat::Bgra8UnormSrgb,
@@ -280,48 +170,15 @@ impl State {
         let swap_chain = device.create_swap_chain(&surface, &sc_desc);
 
         // Texture
+        let mut context = context::Context::new();
+
         let diffuse_bytes = include_bytes!("tree.png");
         let diffuse_texture =
-            texture::Texture::from_bytes(&device, &queue, diffuse_bytes, "tree.png");
+            texture::Texture::from_bytes(&device, &queue, diffuse_bytes, "tree.png", &mut context);
 
         // Bind group
-        let texture_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                entries: &[
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStage::FRAGMENT,
-                        ty: wgpu::BindingType::SampledTexture {
-                            multisampled: false,
-                            dimension: wgpu::TextureViewDimension::D2,
-                            component_type: wgpu::TextureComponentType::Uint,
-                        },
-                        count: None,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: wgpu::ShaderStage::FRAGMENT,
-                        ty: wgpu::BindingType::Sampler { comparison: false },
-                        count: None,
-                    },
-                ],
-                label: Some("texture_bind_group_layout"),
-            });
-
-        let diffuse_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &texture_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&diffuse_texture.view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
-                },
-            ],
-            label: Some("diffuse_bind_group"),
-        });
+        let (diffuse_bind_group, diffuse_bind_group_layout) =
+            diffuse_texture.create_bind_group(&device);
 
         // Camera
 
@@ -376,7 +233,7 @@ impl State {
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[&texture_bind_group_layout, &uniform_bind_group_layout],
+                bind_group_layouts: &[&diffuse_bind_group_layout, &uniform_bind_group_layout],
                 push_constant_ranges: &[],
             });
 
@@ -438,8 +295,14 @@ impl State {
 
         let camera_controller = CameraController::new(0.2);
 
-        let depth_texture =
-            texture::Texture::create_depth_texture(&device, &sc_desc, "depth_texture");
+        let depth_texture = texture::Texture::create_depth_texture(
+            &device,
+            &sc_desc,
+            "depth_texture",
+            &mut context,
+        );
+
+        let spritebatch = spritebatch::Spritebatch::new(device.clone());
 
         Self {
             surface,
@@ -467,6 +330,9 @@ impl State {
             camera_controller,
 
             depth_texture,
+
+            context,
+            spritebatch,
         }
     }
 
@@ -476,8 +342,12 @@ impl State {
         self.sc_desc.height = new_size.height;
         self.swap_chain = self.device.create_swap_chain(&self.surface, &self.sc_desc);
 
-        self.depth_texture =
-            texture::Texture::create_depth_texture(&self.device, &self.sc_desc, "depth_texture");
+        self.depth_texture = texture::Texture::create_depth_texture(
+            &self.device,
+            &self.sc_desc,
+            "depth_texture",
+            &mut self.context,
+        );
     }
 
     fn input(&mut self, event: &WindowEvent) -> bool {
@@ -495,6 +365,27 @@ impl State {
     }
 
     fn render(&mut self, window: &Window) {
+        self.spritebatch
+            .draw(Vec3::zero(), Vec3::unit_z(), self.diffuse_texture.clone());
+        self.spritebatch.draw(
+            Vec3::new(3., 0.5, 0.),
+            Vec3::unit_z(),
+            self.diffuse_texture.clone(),
+        );
+        self.spritebatch.draw(
+            Vec3::new(-2., -0.5, -1.),
+            Vec3::unit_z(),
+            self.diffuse_texture.clone(),
+        );
+        self.spritebatch.draw(
+            Vec3::new(0., 2., 0.),
+            Vec3::unit_z(),
+            self.diffuse_texture.clone(),
+        );
+        self.spritebatch
+            .draw(Vec3::zero(), Vec3::unit_x(), self.diffuse_texture.clone());
+        self.spritebatch.flush_to_buffer();
+
         let frame = self.swap_chain.get_current_frame();
         let frame = match frame {
             Result::Err(wgpu::SwapChainError::Outdated) => {
@@ -510,6 +401,13 @@ impl State {
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("Render Encoder"),
             });
+
+        let buffers = self.spritebatch.get_buffer();
+        let mut bind_groups = Vec::new();
+        for (texture, _, _) in buffers.iter() {
+            let (diffuse_bind_group, _) = texture.create_bind_group(&self.device);
+            bind_groups.push(diffuse_bind_group);
+        }
 
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
@@ -536,12 +434,19 @@ impl State {
         });
         render_pass.set_pipeline(&self.render_pipeline);
 
-        render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
         render_pass.set_bind_group(1, &self.uniform_bind_group, &[]);
-
-        render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-        render_pass.set_index_buffer(self.index_buffer.slice(..));
-        render_pass.draw_indexed(0..self.num_indices, 0, 0..1);
+        for ((_, vertex_buffer, index_buffer), bind_group) in buffers.iter().zip(bind_groups.iter())
+        {
+            let spritebatch::IndexBuffer(index_buffer, num_indices) = index_buffer;
+            render_pass.set_bind_group(0, bind_group, &[]);
+            render_pass.set_vertex_buffer(0, vertex_buffer.0.slice(..));
+            render_pass.set_index_buffer(index_buffer.slice(..));
+            render_pass.draw_indexed(0..*num_indices, 0, 0..1);
+        }
+        //render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
+        //render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+        //render_pass.set_index_buffer(self.index_buffer.slice(..));
+        //render_pass.draw_indexed(0..self.num_indices, 0, 0..1);
 
         drop(render_pass);
         self.queue.submit(std::iter::once(encoder.finish()));

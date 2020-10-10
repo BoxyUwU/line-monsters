@@ -1,10 +1,14 @@
+use std::sync::Arc;
+
 use image::GenericImageView;
+use wgpu::Device;
 
 pub struct Texture {
     pub texture: wgpu::Texture,
     pub view: wgpu::TextureView,
     pub sampler: wgpu::Sampler,
     pub size: wgpu::Extent3d,
+    pub id: u64,
 }
 
 impl Texture {
@@ -13,9 +17,10 @@ impl Texture {
         queue: &wgpu::Queue,
         bytes: &[u8],
         label: &str,
-    ) -> Self {
+        ctx: &mut crate::context::Context,
+    ) -> Arc<Self> {
         let img = image::load_from_memory(bytes).unwrap();
-        Self::from_image(device, queue, &img, Some(label))
+        Self::from_image(device, queue, &img, Some(label), ctx)
     }
 
     pub fn from_image(
@@ -23,7 +28,11 @@ impl Texture {
         queue: &wgpu::Queue,
         img: &image::DynamicImage,
         label: Option<&str>,
-    ) -> Self {
+        ctx: &mut crate::context::Context,
+    ) -> Arc<Self> {
+        let id = ctx.texture_ids;
+        ctx.texture_ids += 1;
+
         let rgba = img.as_rgba8().unwrap();
         let dimensions = img.dimensions();
 
@@ -68,12 +77,13 @@ impl Texture {
             ..Default::default()
         });
 
-        Self {
+        Arc::new(Self {
             texture,
             view,
             sampler,
             size,
-        }
+            id,
+        })
     }
 }
 
@@ -84,7 +94,11 @@ impl Texture {
         device: &wgpu::Device,
         sc_desc: &wgpu::SwapChainDescriptor,
         label: &str,
+        ctx: &mut crate::context::Context,
     ) -> Self {
+        let id = ctx.texture_ids;
+        ctx.texture_ids += 1;
+
         let size = wgpu::Extent3d {
             width: sc_desc.width,
             height: sc_desc.height,
@@ -120,6 +134,53 @@ impl Texture {
             view,
             sampler,
             size,
+            id,
         }
+    }
+}
+
+impl Texture {
+    pub fn create_bind_group_layout(&self, device: &Device) -> wgpu::BindGroupLayout {
+        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStage::FRAGMENT,
+                    ty: wgpu::BindingType::SampledTexture {
+                        multisampled: false,
+                        dimension: wgpu::TextureViewDimension::D2,
+                        component_type: wgpu::TextureComponentType::Uint,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStage::FRAGMENT,
+                    ty: wgpu::BindingType::Sampler { comparison: false },
+                    count: None,
+                },
+            ],
+            label: Some("diffuse_bind_group_layout"),
+        });
+        bind_group_layout
+    }
+
+    pub fn create_bind_group(&self, device: &Device) -> (wgpu::BindGroup, wgpu::BindGroupLayout) {
+        let bind_group_layout = self.create_bind_group_layout(device);
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&self.view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&self.sampler),
+                },
+            ],
+            label: Some("diffuse_bind_group"),
+        });
+        (bind_group, bind_group_layout)
     }
 }
