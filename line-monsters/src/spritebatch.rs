@@ -36,7 +36,7 @@ impl Spritebatch {
 
         if let Some(cur_texture) = &self.current_texture {
             if cur_texture.id != texture.id {
-                self.flush_to_buffer();
+                self.flush_to_buffer(Some(Arc::clone(&texture)));
             }
         } else {
             self.current_texture = Some(Arc::clone(&texture));
@@ -86,7 +86,7 @@ impl Spritebatch {
     }
 
     /// Flushes the existing vertices and indices into CommandBuffer
-    pub fn flush_to_buffer(&mut self) {
+    pub fn flush_to_buffer(&mut self, new_texture: Option<Arc<Texture>>) {
         if self.current_texture.is_none() {
             return;
         }
@@ -116,11 +116,13 @@ impl Spritebatch {
             index_buffer,
         ));
 
+        self.current_texture = new_texture;
         self.vertices.clear();
         self.indices.clear();
     }
 
     pub fn get_buffer(&mut self) -> Vec<(Arc<Texture>, VertexBuffer, IndexBuffer)> {
+        self.flush_to_buffer(None);
         let buffer = self.buffers.drain(..).collect();
         buffer
     }

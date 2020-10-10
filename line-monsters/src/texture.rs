@@ -140,7 +140,7 @@ impl Texture {
 }
 
 impl Texture {
-    pub fn create_bind_group_layout(&self, device: &Device) -> wgpu::BindGroupLayout {
+    pub fn create_bind_group_layout(device: &Device) -> wgpu::BindGroupLayout {
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: &[
                 wgpu::BindGroupLayoutEntry {
@@ -166,7 +166,7 @@ impl Texture {
     }
 
     pub fn create_bind_group(&self, device: &Device) -> (wgpu::BindGroup, wgpu::BindGroupLayout) {
-        let bind_group_layout = self.create_bind_group_layout(device);
+        let bind_group_layout = Self::create_bind_group_layout(device);
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &bind_group_layout,
             entries: &[

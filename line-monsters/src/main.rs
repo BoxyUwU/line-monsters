@@ -111,6 +111,7 @@ struct State {
     num_indices: u32,
 
     diffuse_texture: Arc<texture::Texture>,
+    test2_texture: Arc<texture::Texture>,
     #[allow(dead_code)]
     diffuse_bind_group: wgpu::BindGroup,
 
@@ -175,6 +176,10 @@ impl State {
         let diffuse_bytes = include_bytes!("tree.png");
         let diffuse_texture =
             texture::Texture::from_bytes(&device, &queue, diffuse_bytes, "tree.png", &mut context);
+
+        let test2_bytes = include_bytes!("test2.png");
+        let test2_texture =
+            texture::Texture::from_bytes(&device, &queue, test2_bytes, "test2.png", &mut context);
 
         // Bind group
         let (diffuse_bind_group, diffuse_bind_group_layout) =
@@ -321,6 +326,8 @@ impl State {
             diffuse_texture,
             diffuse_bind_group,
 
+            test2_texture,
+
             camera,
 
             uniforms,
@@ -375,7 +382,7 @@ impl State {
         self.spritebatch.draw(
             Vec3::new(-2., -0.5, -1.),
             Vec3::unit_z(),
-            self.diffuse_texture.clone(),
+            self.test2_texture.clone(),
         );
         self.spritebatch.draw(
             Vec3::new(0., 2., 0.),
@@ -384,7 +391,6 @@ impl State {
         );
         self.spritebatch
             .draw(Vec3::zero(), Vec3::unit_x(), self.diffuse_texture.clone());
-        self.spritebatch.flush_to_buffer();
 
         let frame = self.swap_chain.get_current_frame();
         let frame = match frame {
