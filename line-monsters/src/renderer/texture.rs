@@ -17,7 +17,7 @@ impl Texture {
         queue: &wgpu::Queue,
         bytes: &[u8],
         label: &str,
-        ctx: &mut crate::context::Context,
+        ctx: &mut super::context::Context,
     ) -> Arc<Self> {
         let img = image::load_from_memory(bytes).unwrap();
         Self::from_image(device, queue, &img, Some(label), ctx)
@@ -28,7 +28,7 @@ impl Texture {
         queue: &wgpu::Queue,
         img: &image::DynamicImage,
         label: Option<&str>,
-        ctx: &mut crate::context::Context,
+        ctx: &mut super::context::Context,
     ) -> Arc<Self> {
         let id = ctx.texture_ids;
         ctx.texture_ids += 1;
@@ -94,7 +94,7 @@ impl Texture {
         device: &wgpu::Device,
         sc_desc: &wgpu::SwapChainDescriptor,
         label: &str,
-        ctx: &mut crate::context::Context,
+        ctx: &mut super::context::Context,
     ) -> Self {
         let id = ctx.texture_ids;
         ctx.texture_ids += 1;

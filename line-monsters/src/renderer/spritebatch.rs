@@ -1,4 +1,5 @@
-use crate::{texture::Texture, Vertex};
+use super::texture::Texture;
+use super::Vertex;
 use std::sync::Arc;
 use ultraviolet::{Rotor3, Vec3};
 use wgpu::Device;
@@ -12,7 +13,7 @@ pub struct Spritebatch {
     pub buffers: Vec<(Arc<Texture>, VertexBuffer, IndexBuffer)>,
 
     current_texture: Option<Arc<Texture>>,
-    vertices: Vec<crate::Vertex>,
+    vertices: Vec<Vertex>,
     indices: Vec<u16>,
 }
 
