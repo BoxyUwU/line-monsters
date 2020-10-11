@@ -5,6 +5,7 @@ use winit::{
 };
 
 mod camera;
+mod game;
 
 pub mod renderer;
 
@@ -15,6 +16,7 @@ fn main() {
     use futures::executor::block_on;
 
     let mut state = block_on(renderer::State::new(&window));
+    let mut scene = game::Scene::new(state.device.clone(), &state.queue);
 
     event_loop.run(move |event, _, control_flow| match event {
         Event::WindowEvent {
@@ -40,6 +42,8 @@ fn main() {
             window.request_redraw();
         }
         Event::RedrawRequested(_) => {
+            scene.tick(&mut state);
+
             state.update();
             state.render(&window);
         }

@@ -8,16 +8,13 @@ use winit::{event::WindowEvent, window::Window};
 
 pub struct State {
     surface: wgpu::Surface,
-    device: Arc<wgpu::Device>,
-    queue: wgpu::Queue,
+    pub device: Arc<wgpu::Device>,
+    pub queue: wgpu::Queue,
     sc_desc: wgpu::SwapChainDescriptor,
     swap_chain: wgpu::SwapChain,
     size: winit::dpi::PhysicalSize<u32>,
 
     render_pipeline: wgpu::RenderPipeline,
-
-    tree_texture: Arc<texture::Texture>,
-    test2_texture: Arc<texture::Texture>,
 
     #[allow(dead_code)]
     camera: Camera,
@@ -32,7 +29,11 @@ pub struct State {
 
     depth_texture: texture::Texture,
 
-    spritebatch: spritebatch::Spritebatch,
+    pub spritebatch_buffers: Vec<(
+        Arc<texture::Texture>,
+        spritebatch::VertexBuffer,
+        spritebatch::IndexBuffer,
+    )>,
 }
 
 impl State {
@@ -72,13 +73,6 @@ impl State {
             present_mode: wgpu::PresentMode::Fifo,
         };
         let swap_chain = device.create_swap_chain(&surface, &sc_desc);
-
-        // Texture
-        let tree_bytes = include_bytes!("res/tree.png");
-        let tree_texture = texture::Texture::from_bytes(&device, &queue, tree_bytes, "tree.png");
-
-        let test2_bytes = include_bytes!("res/test2.png");
-        let test2_texture = texture::Texture::from_bytes(&device, &queue, test2_bytes, "test2.png");
 
         let diffuse_bind_group_layout = texture::Texture::create_bind_group_layout(&device);
 
@@ -186,8 +180,6 @@ impl State {
         let depth_texture =
             texture::Texture::create_depth_texture(&device, &sc_desc, "depth_texture");
 
-        let spritebatch = spritebatch::Spritebatch::new(device.clone());
-
         Self {
             surface,
             device,
@@ -197,9 +189,6 @@ impl State {
             size: window_size,
 
             render_pipeline,
-
-            tree_texture,
-            test2_texture,
 
             camera,
 
@@ -211,7 +200,7 @@ impl State {
 
             depth_texture,
 
-            spritebatch,
+            spritebatch_buffers: Vec::new(),
         }
     }
 
@@ -240,26 +229,6 @@ impl State {
     }
 
     pub fn render(&mut self, window: &Window) {
-        self.spritebatch
-            .draw(Vec3::zero(), Vec3::unit_z(), self.tree_texture.clone());
-        self.spritebatch.draw(
-            Vec3::new(3., 0.5, 0.),
-            Vec3::unit_z(),
-            self.tree_texture.clone(),
-        );
-        self.spritebatch.draw(
-            Vec3::new(-2., -0.5, -1.),
-            Vec3::unit_z(),
-            self.test2_texture.clone(),
-        );
-        self.spritebatch.draw(
-            Vec3::new(0., 2., 0.),
-            Vec3::unit_z(),
-            self.tree_texture.clone(),
-        );
-        self.spritebatch
-            .draw(Vec3::zero(), Vec3::unit_x(), self.tree_texture.clone());
-
         let frame = self.swap_chain.get_current_frame();
         let frame = match frame {
             Result::Err(wgpu::SwapChainError::Outdated) => {
@@ -276,9 +245,8 @@ impl State {
                 label: Some("Render Encoder"),
             });
 
-        let buffers = self.spritebatch.get_buffer();
         let mut bind_groups = Vec::new();
-        for (texture, _, _) in buffers.iter() {
+        for (texture, _, _) in self.spritebatch_buffers.iter() {
             let (diffuse_bind_group, _) = texture.create_bind_group(&self.device);
             bind_groups.push(diffuse_bind_group);
         }
@@ -309,7 +277,8 @@ impl State {
         render_pass.set_pipeline(&self.render_pipeline);
 
         render_pass.set_bind_group(1, &self.uniform_bind_group, &[]);
-        for ((_, vertex_buffer, index_buffer), bind_group) in buffers.iter().zip(bind_groups.iter())
+        for ((_, vertex_buffer, index_buffer), bind_group) in
+            self.spritebatch_buffers.iter().zip(bind_groups.iter())
         {
             let spritebatch::IndexBuffer(index_buffer, num_indices) = index_buffer;
             render_pass.set_bind_group(0, bind_group, &[]);

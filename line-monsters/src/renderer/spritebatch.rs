@@ -31,9 +31,12 @@ impl Spritebatch {
         }
     }
 
-    pub fn draw(&mut self, position: Vec3, plane: Vec3, texture: Arc<Texture>) {
+    /// Plane is normalized in the draw call
+    pub fn draw(&mut self, position: Vec3, mut plane: Vec3, texture: Arc<Texture>) {
         assert!(self.vertices.len() + 4 <= u16::MAX as usize);
         assert!(self.indices.len() + 6 <= u32::MAX as usize);
+
+        plane.normalize();
 
         if let Some(cur_texture) = &self.current_texture {
             if Arc::ptr_eq(&cur_texture, &texture) == false {
@@ -46,10 +49,10 @@ impl Spritebatch {
         let rotor = Rotor3::from_rotation_between(Vec3::unit_y(), plane);
 
         let top_right = rotor * Vec3::unit_x();
-        let top_right = top_right * (texture.size.width as f32 / 256.);
+        let top_right = top_right * (texture.size.width as f32 / 16.);
 
         let bottom_left = rotor * Vec3::unit_z();
-        let bottom_left = bottom_left * (texture.size.height as f32 / 256.);
+        let bottom_left = bottom_left * (texture.size.height as f32 / 16.);
 
         let bottom_right = top_right + bottom_left;
 
@@ -72,18 +75,31 @@ impl Spritebatch {
             },
         ];
 
-        let cur_idx = self.vertices.len();
         #[rustfmt::skip]
-        let mut indices: [u16; 6] = [
+        let indices: [u16; 6] = [
             0, 1, 3,
             1, 2, 3,
         ];
-        for index in &mut indices {
-            *index += cur_idx as u16;
+
+        self.push_verts(&vertices, &indices, texture);
+    }
+
+    pub fn push_verts(&mut self, vertices: &[Vertex], indices: &[u16], texture: Arc<Texture>) {
+        assert!(self.vertices.len() + vertices.len() <= u16::MAX as usize);
+        assert!(self.indices.len() + indices.len() <= u32::MAX as usize);
+
+        if let Some(cur_texture) = &self.current_texture {
+            if Arc::ptr_eq(&cur_texture, &texture) == false {
+                self.flush_to_buffer(Some(Arc::clone(&texture)));
+            }
+        } else {
+            self.current_texture = Some(Arc::clone(&texture));
         }
 
-        self.indices.extend_from_slice(&indices);
-        self.vertices.extend_from_slice(&vertices);
+        let cur_vert_len = self.vertices.len() as u16;
+        self.indices
+            .extend(indices.iter().map(move |index| *index + cur_vert_len));
+        self.vertices.extend_from_slice(vertices);
     }
 
     /// Flushes the existing vertices and indices into CommandBuffer
