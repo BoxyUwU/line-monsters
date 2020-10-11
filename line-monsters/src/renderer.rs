@@ -27,7 +27,10 @@ pub struct State {
 
     camera_controller: CameraController,
 
-    depth_texture: texture::Texture,
+    depth_texture: Arc<texture::Texture>,
+
+    render_texture_depth_texture: Arc<texture::Texture>,
+    render_texture: Arc<texture::Texture>,
 
     pub spritebatch_buffers: Vec<(
         Arc<texture::Texture>,
@@ -65,9 +68,11 @@ impl State {
 
         let device = Arc::new(device);
 
+        let texture_format = wgpu::TextureFormat::Bgra8UnormSrgb;
+
         let sc_desc = wgpu::SwapChainDescriptor {
             usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
-            format: wgpu::TextureFormat::Bgra8UnormSrgb,
+            format: texture_format,
             width: window_size.width,
             height: window_size.height,
             present_mode: wgpu::PresentMode::Fifo,
@@ -154,7 +159,7 @@ impl State {
                 clamp_depth: false,
             }),
             color_states: &[wgpu::ColorStateDescriptor {
-                format: sc_desc.format,
+                format: texture_format,
                 color_blend: wgpu::BlendDescriptor::REPLACE,
                 alpha_blend: wgpu::BlendDescriptor::REPLACE,
                 write_mask: wgpu::ColorWrite::ALL,
@@ -177,8 +182,17 @@ impl State {
 
         let camera_controller = CameraController::new(0.2);
 
-        let depth_texture =
-            texture::Texture::create_depth_texture(&device, &sc_desc, "depth_texture");
+        let depth_texture = texture::Texture::create_depth_texture(
+            &device,
+            sc_desc.width,
+            sc_desc.height,
+            "depth_texture",
+        );
+
+        let render_texture_depth_texture =
+            texture::Texture::create_depth_texture(&device, 256, 192, "rt_depth_texture");
+        let render_texture =
+            texture::Texture::empty_texture(&device, &queue, 256, 192, "render_Texture");
 
         Self {
             surface,
@@ -200,6 +214,9 @@ impl State {
 
             depth_texture,
 
+            render_texture_depth_texture,
+            render_texture,
+
             spritebatch_buffers: Vec::new(),
         }
     }
@@ -210,8 +227,12 @@ impl State {
         self.sc_desc.height = new_size.height;
         self.swap_chain = self.device.create_swap_chain(&self.surface, &self.sc_desc);
 
-        self.depth_texture =
-            texture::Texture::create_depth_texture(&self.device, &self.sc_desc, "depth_texture");
+        self.depth_texture = texture::Texture::create_depth_texture(
+            &self.device,
+            self.sc_desc.width,
+            self.sc_desc.height,
+            "depth_texture",
+        );
     }
 
     pub fn input(&mut self, event: &WindowEvent) -> bool {
@@ -239,56 +260,144 @@ impl State {
             _ => panic!("Timeout getting texture"),
         };
 
-        let mut encoder = self
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("Render Encoder"),
+        let buffer_one = {
+            let mut encoder = self
+                .device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some("Render Encoder"),
+                });
+
+            let mut bind_groups = Vec::new();
+            for (texture, _, _) in self.spritebatch_buffers.iter() {
+                let (diffuse_bind_group, _) = texture.create_bind_group(&self.device);
+                bind_groups.push(diffuse_bind_group);
+            }
+
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
+                    attachment: &self.render_texture.view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color {
+                            r: 0.1,
+                            g: 0.2,
+                            b: 0.3,
+                            a: 1.0,
+                        }),
+                        store: true,
+                    },
+                }],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
+                    attachment: &self.render_texture_depth_texture.view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: true,
+                    }),
+                    stencil_ops: None,
+                }),
+            });
+            render_pass.set_pipeline(&self.render_pipeline);
+
+            render_pass.set_bind_group(1, &self.uniform_bind_group, &[]);
+            for ((_, vertex_buffer, index_buffer), bind_group) in
+                self.spritebatch_buffers.iter().zip(bind_groups.iter())
+            {
+                let spritebatch::IndexBuffer(index_buffer, num_indices) = index_buffer;
+                render_pass.set_bind_group(0, bind_group, &[]);
+                render_pass.set_vertex_buffer(0, vertex_buffer.0.slice(..));
+                render_pass.set_index_buffer(index_buffer.slice(..));
+                render_pass.draw_indexed(0..*num_indices, 0, 0..1);
+            }
+            drop(render_pass);
+
+            encoder.finish()
+        };
+
+        self.queue.submit(std::iter::once(buffer_one));
+        let buffer_two = {
+            #[rustfmt::skip]
+            const VERTICES: &[Vertex] = &[
+                Vertex { position: [-1., 1., 0.], tex_coords: [0., 0.], }, // A
+                Vertex { position: [-1., -1., 0.], tex_coords: [0., 1.], }, // B
+                Vertex { position: [1., -1., 0.], tex_coords: [1., 1.], }, // C
+                Vertex { position: [1., 1., 0.], tex_coords: [1., 0.], }, // D
+            ];
+
+            #[rustfmt::skip]
+            const INDICES: &[u16] = &[
+                0, 1, 3,
+                1, 2, 3,
+            ];
+
+            let mut encoder = self
+                .device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some("Render Encoder"),
+                });
+
+            let (bind_group, _) = self.render_texture.create_bind_group(&self.device);
+
+            // Create buffers
+            use wgpu::util::DeviceExt;
+            let vertex_buffer = self
+                .device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Vertex Buffer"),
+                    contents: bytemuck::cast_slice(&VERTICES),
+                    usage: wgpu::BufferUsage::VERTEX,
+                });
+
+            let index_buffer = self
+                .device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Index Buffer"),
+                    #[rustfmt::skip]
+                    contents: bytemuck::cast_slice(&INDICES),
+                    usage: wgpu::BufferUsage::INDEX,
+                });
+
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
+                    attachment: &frame.view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color {
+                            r: 0.5,
+                            g: 0.5,
+                            b: 0.5,
+                            a: 1.0,
+                        }),
+                        store: true,
+                    },
+                }],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
+                    attachment: &self.depth_texture.view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: true,
+                    }),
+                    stencil_ops: None,
+                }),
             });
 
-        let mut bind_groups = Vec::new();
-        for (texture, _, _) in self.spritebatch_buffers.iter() {
-            let (diffuse_bind_group, _) = texture.create_bind_group(&self.device);
-            bind_groups.push(diffuse_bind_group);
-        }
+            let uniform = Uniforms {
+                view_proj: Mat4::identity(),
+            };
+            self.queue
+                .write_buffer(&self.uniform_buffer, 0, bytemuck::cast_slice(&[uniform]));
 
-        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                attachment: &frame.view,
-                resolve_target: None,
-                ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(wgpu::Color {
-                        r: 0.1,
-                        g: 0.2,
-                        b: 0.3,
-                        a: 1.0,
-                    }),
-                    store: true,
-                },
-            }],
-            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
-                attachment: &self.depth_texture.view,
-                depth_ops: Some(wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(1.0),
-                    store: true,
-                }),
-                stencil_ops: None,
-            }),
-        });
-        render_pass.set_pipeline(&self.render_pipeline);
-
-        render_pass.set_bind_group(1, &self.uniform_bind_group, &[]);
-        for ((_, vertex_buffer, index_buffer), bind_group) in
-            self.spritebatch_buffers.iter().zip(bind_groups.iter())
-        {
-            let spritebatch::IndexBuffer(index_buffer, num_indices) = index_buffer;
-            render_pass.set_bind_group(0, bind_group, &[]);
-            render_pass.set_vertex_buffer(0, vertex_buffer.0.slice(..));
+            render_pass.set_pipeline(&self.render_pipeline);
+            render_pass.set_bind_group(0, &bind_group, &[]);
+            render_pass.set_bind_group(1, &self.uniform_bind_group, &[]);
+            render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
             render_pass.set_index_buffer(index_buffer.slice(..));
-            render_pass.draw_indexed(0..*num_indices, 0, 0..1);
-        }
+            render_pass.draw_indexed(0..6, 0, 0..1);
+            drop(render_pass);
 
-        drop(render_pass);
-        self.queue.submit(std::iter::once(encoder.finish()));
+            encoder.finish()
+        };
+
+        self.queue.submit(std::iter::once(buffer_two));
     }
 }
 
