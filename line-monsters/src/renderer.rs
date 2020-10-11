@@ -84,11 +84,11 @@ impl State {
         // Camera
 
         let camera = Camera {
-            eye: Vec3::new(0.0, 5.0, 5.0),
-            target: Vec3::new(0.0, 0.0, 0.0),
+            eye: Vec3::new(0.5, 10.0, 5.5),
+            target: Vec3::new(0.5, 0.0, 0.5),
             up: Vec3::unit_y(),
-            aspect: sc_desc.width as f32 / sc_desc.height as f32,
-            fov_y: 45.0_f32.to_radians(),
+            aspect: 256. / 192.,
+            fov_y: 60.0_f32.to_radians(),
             z_near: 0.1,
             z_far: 100.0,
         };
