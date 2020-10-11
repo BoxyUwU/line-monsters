@@ -30,44 +30,6 @@ impl Scene {
     }
 
     pub fn tick(&mut self, state: &mut State) {
-        /*let (vertices, indices) = create_wall_verts(Vec3::new(-2., 0., 1.));
-        self.spritebatch
-            .push_verts(&vertices, &indices, self.ground_wall_texture.clone());
-
-        let (vertices, indices) = create_wall_verts(Vec3::new(-1., 0., 1.));
-        self.spritebatch
-            .push_verts(&vertices, &indices, self.ground_wall_texture.clone());
-
-        /*self.spritebatch.draw(
-            Vec3::new(-2., 0., 1.),
-            wall_angle,
-            self.ground_wall_texture.clone(),
-        );
-        self.spritebatch.draw(
-            Vec3::new(-1., 0., 1.),
-            wall_angle,
-            self.ground_wall_texture.clone(),
-        );*/
-
-        let (vertices, indices) = create_wall_verts(Vec3::new(-2., 1., -2.));
-        self.spritebatch
-            .push_verts(&vertices, &indices, self.ground_wall_texture.clone());
-
-        let (vertices, indices) = create_wall_verts(Vec3::new(-1., 1., -2.));
-        self.spritebatch
-            .push_verts(&vertices, &indices, self.ground_wall_texture.clone());
-
-        /*self.spritebatch.draw(
-            Vec3::new(-2., 0.5_f32.sqrt(), -1. - (0.5_f32.sqrt())),
-            wall_angle,
-            self.ground_wall_texture.clone(),
-        );
-        self.spritebatch.draw(
-            Vec3::new(-1., 0.5_f32.sqrt(), -1. - (0.5_f32.sqrt())),
-            wall_angle,
-            self.ground_wall_texture.clone(),
-        );*/*/
-
         for column in -2..=2 {
             for row in -1..=1 {
                 self.draw_floor(column, row, 0);
