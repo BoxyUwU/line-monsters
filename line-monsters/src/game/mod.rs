@@ -42,7 +42,7 @@ impl Scene {
             self.draw_ground_wall(column, -3, 2);
         }
 
-        for column in -5..=3 {
+        for column in -7..=7 {
             for row in -5..=-4 {
                 self.draw_floor(column, row, 2);
             }

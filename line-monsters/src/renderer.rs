@@ -82,15 +82,14 @@ impl State {
         let diffuse_bind_group_layout = texture::Texture::create_bind_group_layout(&device);
 
         // Camera
-
         let camera = Camera {
-            eye: Vec3::new(0.5, 10.0, 5.5),
+            eye: Vec3::new(0.5, 15., 5.5),
             target: Vec3::new(0.5, 0.0, 0.5),
             up: Vec3::unit_y(),
             aspect: 256. / 192.,
-            fov_y: 60.0_f32.to_radians(),
-            z_near: 0.1,
-            z_far: 100.0,
+            fov_y: 45.0_f32.to_radians(),
+            z_near: 0.01,
+            z_far: 20.0,
         };
 
         // Uniforms
@@ -275,7 +274,8 @@ impl State {
 
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                    attachment: &self.render_texture.view,
+                    //attachment: &self.render_texture.view,
+                    attachment: &frame.view,
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
@@ -288,7 +288,8 @@ impl State {
                     },
                 }],
                 depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
-                    attachment: &self.render_texture_depth_texture.view,
+                    //attachment: &self.render_texture_depth_texture.view,
+                    attachment: &self.depth_texture.view,
                     depth_ops: Some(wgpu::Operations {
                         load: wgpu::LoadOp::Clear(1.0),
                         store: true,
@@ -314,7 +315,7 @@ impl State {
         };
 
         self.queue.submit(std::iter::once(buffer_one));
-        let buffer_two = {
+        /*let buffer_two = {
             #[rustfmt::skip]
             const VERTICES: &[Vertex] = &[
                 Vertex { position: [-1., 1., 0.], tex_coords: [0., 0.], }, // A
@@ -381,10 +382,14 @@ impl State {
             });
 
             let uniform = Uniforms {
-                view_proj: Mat4::identity(),
+                view: Mat4::identity(),
+                ortho_proj: Mat4::identity(),
+                perspective_proj: Mat4::identity(),
+                render_target: true,
             };
-            self.queue
-                .write_buffer(&self.uniform_buffer, 0, bytemuck::cast_slice(&[uniform]));
+
+            //self.queue
+            //    .write_buffer(&self.uniform_buffer, 0, bytemuck::cast_slice(&[uniform]));
 
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &bind_group, &[]);
@@ -397,7 +402,7 @@ impl State {
             encoder.finish()
         };
 
-        self.queue.submit(std::iter::once(buffer_two));
+        self.queue.submit(std::iter::once(buffer_two));*/
     }
 }
 
@@ -407,18 +412,25 @@ unsafe impl bytemuck::Zeroable for Uniforms {}
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 struct Uniforms {
-    view_proj: Mat4,
+    view: Mat4,
+    ortho_proj: Mat4,
+    perspective_proj: Mat4,
 }
 
 impl Uniforms {
     fn new() -> Self {
         Self {
-            view_proj: Mat4::identity(),
+            view: Mat4::identity(),
+            ortho_proj: Mat4::identity(),
+            perspective_proj: Mat4::identity(),
         }
     }
 
     fn update_view_proj(&mut self, camera: &Camera) {
-        self.view_proj = camera.build_view_projection_matrix();
+        let (view, ortho_proj, perspective_proj) = camera.build_view_projection_matrix();
+        self.view = view;
+        self.ortho_proj = ortho_proj;
+        self.perspective_proj = perspective_proj;
     }
 }
 
