@@ -82,14 +82,17 @@ impl State {
         let diffuse_bind_group_layout = texture::Texture::create_bind_group_layout(&device);
 
         // Camera
+        let eye = Vec3::new(0.5, 20.0, 20.5);
+        let direction = Vec3::new(0., -1.0, -1.0);
+
         let camera = Camera {
-            eye: Vec3::new(0.5, 15., 5.5),
-            target: Vec3::new(0.5, 0.0, 0.5),
+            eye,
+            direction,
             up: Vec3::unit_y(),
             aspect: 256. / 192.,
-            fov_y: 45.0_f32.to_radians(),
+            fov_y: 25.0_f32.to_radians(),
             z_near: 0.01,
-            z_far: 20.0,
+            z_far: 50.0,
         };
 
         // Uniforms
@@ -414,7 +417,6 @@ unsafe impl bytemuck::Zeroable for Uniforms {}
 struct Uniforms {
     view: Mat4,
     ortho_proj: Mat4,
-    perspective_proj: Mat4,
 }
 
 impl Uniforms {
@@ -422,15 +424,13 @@ impl Uniforms {
         Self {
             view: Mat4::identity(),
             ortho_proj: Mat4::identity(),
-            perspective_proj: Mat4::identity(),
         }
     }
 
     fn update_view_proj(&mut self, camera: &Camera) {
-        let (view, ortho_proj, perspective_proj) = camera.build_view_projection_matrix();
+        let (view, ortho_proj) = camera.build_view_projection_matrix();
         self.view = view;
         self.ortho_proj = ortho_proj;
-        self.perspective_proj = perspective_proj;
     }
 }
 

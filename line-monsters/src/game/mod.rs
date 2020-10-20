@@ -2,13 +2,58 @@ use crate::renderer::texture;
 use crate::renderer::State;
 use crate::renderer::{spritebatch::Spritebatch, Vertex};
 use std::sync::Arc;
-use ultraviolet::Vec3;
 use wgpu::{Device, Queue};
+use winit::event::{ElementState, KeyboardInput, VirtualKeyCode, WindowEvent};
+
+#[derive(Copy, Clone, Debug)]
+pub enum Model {
+    Wall,
+    Corner,
+    Floor,
+}
+
+impl Model {
+    fn get_model(&self) -> (&[Vertex], &[u16]) {
+        match &self {
+            Model::Wall => (crate::models::wall::VERTS, crate::models::wall::INDICES),
+            Model::Floor => (crate::models::floor::VERTS, crate::models::floor::INDICES),
+            Model::Corner => (crate::models::corner::VERTS, crate::models::corner::INDICES),
+        }
+    }
+
+    fn serialize(&self) -> &'static str {
+        match &self {
+            Model::Wall => "Model::Wall",
+            Model::Corner => "Model::Corner",
+            Model::Floor => "Model::Floor",
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct Tile {
+    height: u8,
+    model: Model,
+}
+
+impl Tile {
+    fn new(height: u8, model: Model) -> Self {
+        Self { height, model }
+    }
+}
 
 pub struct Scene {
     spritebatch: Spritebatch,
     grass_texture: Arc<texture::Texture>,
     ground_wall_texture: Arc<texture::Texture>,
+
+    move_select_left: bool,
+    move_select_right: bool,
+    move_select_up: bool,
+    move_select_down: bool,
+
+    selected: (u8, u8),
+    map: [[Tile; 16]; 12],
 }
 
 impl Scene {
@@ -22,88 +67,351 @@ impl Scene {
         let ground_wall_texture =
             texture::Texture::from_bytes(&device, &queue, ground_wall_bytes, "ground-wall.png");
 
+        let map = {
+            [
+                [
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                ],
+                [
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                ],
+                [
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                ],
+                [
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                ],
+                [
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                ],
+                [
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                ],
+                [
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                ],
+                [
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                ],
+                [
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                ],
+                [
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                ],
+                [
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                    Tile::new(1, Model::Floor),
+                ],
+                [
+                    Tile::new(0, Model::Wall),
+                    Tile::new(0, Model::Wall),
+                    Tile::new(0, Model::Wall),
+                    Tile::new(0, Model::Wall),
+                    Tile::new(0, Model::Wall),
+                    Tile::new(0, Model::Wall),
+                    Tile::new(0, Model::Wall),
+                    Tile::new(0, Model::Wall),
+                    Tile::new(0, Model::Wall),
+                    Tile::new(0, Model::Wall),
+                    Tile::new(0, Model::Wall),
+                    Tile::new(0, Model::Wall),
+                    Tile::new(0, Model::Wall),
+                    Tile::new(0, Model::Wall),
+                    Tile::new(0, Model::Wall),
+                    Tile::new(0, Model::Corner),
+                ],
+            ]
+        };
+
         Self {
             spritebatch,
             grass_texture,
             ground_wall_texture,
+
+            move_select_down: false,
+            move_select_left: false,
+            move_select_right: false,
+            move_select_up: false,
+
+            selected: (0, 0),
+            map,
         }
     }
 
+    pub fn input(&mut self, event: &WindowEvent) -> bool {
+        match event {
+            WindowEvent::KeyboardInput {
+                input:
+                    KeyboardInput {
+                        state,
+                        virtual_keycode: Some(keycode),
+                        ..
+                    },
+                ..
+            } => {
+                let is_pressed = *state == ElementState::Pressed;
+                match keycode {
+                    VirtualKeyCode::Up => {
+                        self.move_select_up = is_pressed;
+                        true
+                    }
+                    VirtualKeyCode::Left => {
+                        self.move_select_left = is_pressed;
+                        true
+                    }
+                    VirtualKeyCode::Down => {
+                        self.move_select_down = is_pressed;
+                        true
+                    }
+                    VirtualKeyCode::Right => {
+                        self.move_select_right = is_pressed;
+                        true
+                    }
+                    _ => false,
+                }
+            }
+            _ => false,
+        }
+    }
+
+    fn serialize_map(&self) {
+        let create_tile_str = |height: u8, model: Model| {
+            format!("Tile::new({}, {}),", height.to_string(), model.serialize())
+        };
+
+        let create_row_str = |row: &[Tile]| {
+            let mut row_string = "[".to_owned();
+            for tile in row.iter() {
+                let tile_str = create_tile_str(tile.height, tile.model);
+                row_string.push_str(&tile_str);
+            }
+            row_string.push_str("],");
+
+            row_string
+        };
+
+        let mut map_str = "let map = [".to_owned();
+        for row in self.map.iter() {
+            map_str.push_str(&create_row_str(row));
+        }
+        map_str.push_str("];");
+
+        println!("{}", map_str);
+    }
+
     pub fn tick(&mut self, state: &mut State) {
-        for column in -2..=2 {
-            for row in -1..=1 {
-                self.draw_floor(column, row, 0);
-            }
+        if self.move_select_up && self.selected.1 > 0 {
+            self.selected.1 -= 1;
+        }
+        if self.move_select_down && self.selected.1 < 11 {
+            self.selected.1 += 1;
         }
 
-        for column in -2..=2 {
-            self.draw_ground_wall(column, 2, 0);
-            self.draw_ground_wall(column, -2, 1);
-            self.draw_ground_wall(column, -3, 2);
+        if self.move_select_left && self.selected.0 > 0 {
+            self.selected.0 -= 1;
+        }
+        if self.move_select_right && self.selected.0 < 15 {
+            self.selected.0 += 1;
         }
 
-        for column in -7..=7 {
-            for row in -5..=-4 {
-                self.draw_floor(column, row, 2);
-            }
-        }
+        self.serialize_map();
 
-        for column in -5..=-3 {
-            self.draw_ground_wall(column, -3, 2);
-        }
-        self.draw_ground_wall(3, -3, 2);
+        for (y, row_data) in self.map.iter().enumerate() {
+            for (x, tile) in row_data.iter().enumerate() {
+                let (vertices, indices) = tile.model.get_model();
+                let vertices: Vec<_> = vertices
+                    .iter()
+                    .map(|vertex| Vertex {
+                        position: [
+                            vertex.position[0] + x as f32,
+                            vertex.position[1] + tile.height as f32 + {
+                                if self.selected.0 as usize == x && self.selected.1 as usize == y {
+                                    0.25
+                                } else {
+                                    0.0
+                                }
+                            },
+                            vertex.position[2] + y as f32,
+                        ],
+                        tex_coords: vertex.tex_coords,
+                    })
+                    .collect();
 
-        for column in -5..=-3 {
-            for row in -2..=1 {
-                self.draw_floor(column, row, 1);
+                let texture = match &tile.model {
+                    Model::Floor => self.grass_texture.clone(),
+                    _ => self.ground_wall_texture.clone(),
+                };
+
+                self.spritebatch.push_verts(&vertices, indices, texture);
             }
         }
 
         let spritebatch_buffer = self.spritebatch.get_buffer();
         state.spritebatch_buffers = spritebatch_buffer;
-    }
-
-    fn draw_floor(&mut self, column: i32, row: i32, height: i32) {
-        self.spritebatch.draw(
-            Vec3::new(column as f32, height as f32, row as f32),
-            Vec3::unit_y(),
-            self.grass_texture.clone(),
-        );
-    }
-
-    fn draw_ground_wall(&mut self, column: i32, row: i32, height: i32) {
-        fn create_wall_verts(offset: Vec3) -> ([Vertex; 4], [u16; 6]) {
-            let vertices: [Vertex; 4] = [
-                Vertex {
-                    position: (Vec3::new(0., 0., 0.) + offset).into(),
-                    tex_coords: [0.0, 0.0],
-                },
-                Vertex {
-                    position: (Vec3::new(0., -1., 1.) + offset).into(),
-                    tex_coords: [0.0, 1.0],
-                },
-                Vertex {
-                    position: (Vec3::new(1., -1., 1.) + offset).into(),
-                    tex_coords: [1.0, 1.0],
-                },
-                Vertex {
-                    position: (Vec3::new(1., 0., 0.) + offset).into(),
-                    tex_coords: [1.0, 0.0],
-                },
-            ];
-
-            #[rustfmt::skip]
-            let indices: [u16; 6] = [
-                0, 1, 3,
-                1, 2, 3,
-            ];
-
-            (vertices, indices)
-        }
-
-        let (vertices, indices) =
-            create_wall_verts(Vec3::new(column as f32, height as f32, row as f32));
-        self.spritebatch
-            .push_verts(&vertices, &indices, self.ground_wall_texture.clone());
     }
 }
