@@ -17,7 +17,7 @@ pub struct State {
     render_pipeline: wgpu::RenderPipeline,
 
     #[allow(dead_code)]
-    camera: Camera,
+    pub camera: Camera,
 
     #[allow(dead_code)]
     uniforms: Uniforms,
@@ -84,17 +84,18 @@ impl State {
         let diffuse_bind_group_layout = texture::Texture::create_bind_group_layout(&device);
 
         // Camera
-        let eye = Vec3::new(0.5, 20.0, 20.5);
+        let eye = Vec3::new(0.5, 40.0, 40.5);
         let direction = Vec3::new(0., -1.0, -1.0);
 
         let camera = Camera {
             eye,
             direction,
             up: Vec3::unit_y(),
-            aspect: 256. / 192.,
-            fov_y: 25.0_f32.to_radians(),
-            z_near: 0.01,
-            z_far: 50.0,
+            // aspect gets overwritten every frame
+            aspect: 1.0 / 1.0,
+            fov_y: 12.0_f32.to_radians(),
+            z_near: 1.0,
+            z_far: 500.0,
         };
 
         // Uniforms
@@ -194,9 +195,9 @@ impl State {
         );
 
         let render_texture_depth_texture =
-            texture::Texture::create_depth_texture(&device, 256, 192, "rt_depth_texture");
+            texture::Texture::create_depth_texture(&device, 320, 180, "rt_depth_texture");
         let render_texture =
-            texture::Texture::empty_texture(&device, &queue, 256, 192, "render_Texture");
+            texture::Texture::empty_texture(&device, &queue, 320, 180, "render_Texture");
 
         Self {
             surface,
@@ -389,12 +390,10 @@ impl State {
             let uniform = Uniforms {
                 view: Mat4::identity(),
                 ortho_proj: Mat4::identity(),
-                perspective_proj: Mat4::identity(),
-                render_target: true,
             };
 
-            //self.queue
-            //    .write_buffer(&self.uniform_buffer, 0, bytemuck::cast_slice(&[uniform]));
+            self.queue
+                .write_buffer(&self.uniform_buffer, 0, bytemuck::cast_slice(&[uniform]));
 
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &bind_group, &[]);

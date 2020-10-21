@@ -204,7 +204,7 @@ impl Scene {
                         self.raise = is_pressed;
                         true
                     }
-                    VirtualKeyCode::LControl => {
+                    VirtualKeyCode::C => {
                         self.lower = is_pressed;
                         true
                     }
@@ -331,6 +331,14 @@ impl Scene {
                     ],
                     tex_coords: vertex.tex_coords,
                 })
+                /*.map(|vertex| Vertex {
+                    position: [
+                        vertex.position[0],
+                        vertex.position[1],
+                        vertex.position[2] * 1.25,
+                    ],
+                    tex_coords: vertex.tex_coords,
+                })*/
                 .collect();
             (vertices, indices)
         }

@@ -87,8 +87,9 @@ impl Camera {
     pub fn build_view_projection_matrix(&self) -> (Mat4, Mat4) {
         let view = Mat4::look_at(self.eye, self.eye + self.direction, self.up);
         //let ortho_proj =
-        //    ultraviolet::projection::orthographic_wgpu_dx(-8., 8., -6., 6., 1.0, 1000.);
+        //    ultraviolet::projection::orthographic_wgpu_dx(-8., 8., -8., 8., 1.0, 1000.);
         //(view, ortho_proj)
+
         let perspective_proj = ultraviolet::projection::rh_yup::perspective_wgpu_dx(
             self.fov_y,
             self.aspect,

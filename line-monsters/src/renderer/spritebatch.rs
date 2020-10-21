@@ -49,10 +49,10 @@ impl Spritebatch {
         let rotor = Rotor3::from_rotation_between(Vec3::unit_y(), plane);
 
         let top_right = rotor * Vec3::unit_x();
-        let top_right = top_right * (texture.size.width as f32 / 16.);
+        let top_right = top_right * (texture.size.width as f32 / 1.);
 
         let bottom_left = rotor * Vec3::unit_z();
-        let bottom_left = bottom_left * (texture.size.height as f32 / 16.);
+        let bottom_left = bottom_left * (texture.size.height as f32 / 1.);
 
         let bottom_right = top_right + bottom_left;
 

@@ -47,6 +47,9 @@ fn main() {
             window.request_redraw();
         }
         Event::RedrawRequested(_) => {
+            state.camera.aspect =
+                window.inner_size().width as f32 / window.inner_size().height as f32;
+
             scene.tick(&mut state);
 
             state.update();
