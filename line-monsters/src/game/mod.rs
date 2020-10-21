@@ -306,43 +306,74 @@ impl Scene {
         }
         self.rotate_tile = false;
 
+        fn produce_verts(
+            tile: &Tile,
+            (x, y): (usize, usize),
+            rotation: TileRotation,
+            selected: (u8, u8),
+            model: Model,
+        ) -> (Vec<Vertex>, &'static [u16]) {
+            let (vertices, indices) = model.get_model();
+            let vertices: Vec<_> = vertices
+                .iter()
+                .map(|vertex| rotation.rotate_vertice(vertex))
+                .map(|vertex| Vertex {
+                    position: [
+                        vertex.position[0] + x as f32,
+                        vertex.position[1] + tile.height as f32 + {
+                            if selected.0 as usize == x && selected.1 as usize == y {
+                                0.25
+                            } else {
+                                0.0
+                            }
+                        },
+                        vertex.position[2] + y as f32,
+                    ],
+                    tex_coords: vertex.tex_coords,
+                })
+                .collect();
+            (vertices, indices)
+        }
+
         for (y, row_data) in self.map.iter().enumerate() {
-            for (x, tile) in row_data.iter().enumerate() {
-                let produce_verts = |rotation: TileRotation, selected: (u8, u8), model: Model| {
-                    let (vertices, indices) = model.get_model();
-                    let vertices: Vec<_> = vertices
-                        .iter()
-                        .map(|vertex| rotation.rotate_vertice(vertex))
-                        .map(|vertex| Vertex {
-                            position: [
-                                vertex.position[0] + x as f32,
-                                vertex.position[1] + tile.height as f32 + {
-                                    if selected.0 as usize == x && selected.1 as usize == y {
-                                        0.25
-                                    } else {
-                                        0.0
-                                    }
-                                },
-                                vertex.position[2] + y as f32,
-                            ],
-                            tex_coords: vertex.tex_coords,
-                        })
-                        .collect();
-                    (vertices, indices)
-                };
+            for (x, tile) in row_data.iter().enumerate().filter(|(_, tile)| {
+                if let Model::Floor = tile.model {
+                    true
+                } else {
+                    false
+                }
+            }) {
+                let (vertices, indices) =
+                    produce_verts(tile, (x, y), tile.rotation, self.selected, Model::Floor);
+                let texture = self.grass_texture.clone();
 
-                let (vertices, indices) = produce_verts(tile.rotation, self.selected, tile.model);
+                self.spritebatch.push_verts(&vertices, indices, texture);
+            }
+        }
 
-                let texture = match &tile.model {
-                    Model::Floor => self.grass_texture.clone(),
-                    _ => self.ground_wall_texture.clone(),
-                };
+        for (y, row_data) in self.map.iter().enumerate() {
+            for (x, tile) in row_data.iter().enumerate().filter(|(_, tile)| {
+                if let Model::Floor = tile.model {
+                    false
+                } else {
+                    true
+                }
+            }) {
+                let (vertices, indices) =
+                    produce_verts(tile, (x, y), tile.rotation, self.selected, tile.model);
+
+                let texture = self.ground_wall_texture.clone();
 
                 self.spritebatch.push_verts(&vertices, indices, texture);
 
                 if let Model::Corner = tile.model {
-                    let (vertices, indices) =
-                        produce_verts(TileRotation::Zero, self.selected, Model::Floor);
+                    let (vertices, indices) = produce_verts(
+                        tile,
+                        (x, y),
+                        TileRotation::Zero,
+                        self.selected,
+                        Model::Floor,
+                    );
                     let texture = self.grass_texture.clone();
                     self.spritebatch.push_verts(&vertices, &indices, texture);
                 }

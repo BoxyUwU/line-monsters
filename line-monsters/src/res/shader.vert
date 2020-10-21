@@ -16,7 +16,7 @@ void main() {
 
     vec4 projected = (u_proj * u_view) * vec4(a_position, 1.0);
     
-    float ratio = 0.1 + (a_position.y * 2);
+    float ratio = 0.1 + (a_position.y * 0.1);
     float vertical_percent = (projected.y + 1.0) / 2.0;
     // Flip the percent so that 0 is the top and 1 is the bottom of screen
     vertical_percent = 1 - vertical_percent;
