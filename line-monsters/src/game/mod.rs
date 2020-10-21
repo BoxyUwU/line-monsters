@@ -11,15 +11,20 @@ mod map;
 pub enum Model {
     Wall,
     Corner,
+    InnerCorner,
     Floor,
 }
 
 impl Model {
-    fn get_model(&self) -> (&[Vertex], &[u16]) {
+    fn get_model(&self) -> (&'static [Vertex], &'static [u16]) {
         match &self {
             Model::Wall => (crate::models::wall::VERTS, crate::models::wall::INDICES),
             Model::Floor => (crate::models::floor::VERTS, crate::models::floor::INDICES),
             Model::Corner => (crate::models::corner::VERTS, crate::models::corner::INDICES),
+            Model::InnerCorner => (
+                crate::models::inner_corner::VERTS,
+                crate::models::inner_corner::INDICES,
+            ),
         }
     }
 
@@ -27,7 +32,8 @@ impl Model {
         match self {
             Model::Wall => *self = Model::Floor,
             Model::Floor => *self = Model::Corner,
-            Model::Corner => *self = Model::Wall,
+            Model::Corner => *self = Model::InnerCorner,
+            Model::InnerCorner => *self = Model::Wall,
         }
     }
 
@@ -36,6 +42,7 @@ impl Model {
             Model::Wall => "Model::Wall",
             Model::Corner => "Model::Corner",
             Model::Floor => "Model::Floor",
+            Model::InnerCorner => "Model::InnerCorner",
         }
     }
 }
@@ -91,14 +98,6 @@ pub struct Tile {
 }
 
 impl Tile {
-    fn new(height: u8, model: Model) -> Self {
-        Self {
-            height,
-            model,
-            rotation: TileRotation::Zero,
-        }
-    }
-
     fn new_rotation(height: u8, model: Model, rotation: TileRotation) -> Self {
         Self {
             height,
@@ -309,25 +308,30 @@ impl Scene {
 
         for (y, row_data) in self.map.iter().enumerate() {
             for (x, tile) in row_data.iter().enumerate() {
-                let (vertices, indices) = tile.model.get_model();
-                let vertices: Vec<_> = vertices
-                    .iter()
-                    .map(|vertex| tile.rotation.rotate_vertice(vertex))
-                    .map(|vertex| Vertex {
-                        position: [
-                            vertex.position[0] + x as f32,
-                            vertex.position[1] + tile.height as f32 + {
-                                if self.selected.0 as usize == x && self.selected.1 as usize == y {
-                                    0.25
-                                } else {
-                                    0.0
-                                }
-                            },
-                            vertex.position[2] + y as f32,
-                        ],
-                        tex_coords: vertex.tex_coords,
-                    })
-                    .collect();
+                let produce_verts = |rotation: TileRotation, selected: (u8, u8), model: Model| {
+                    let (vertices, indices) = model.get_model();
+                    let vertices: Vec<_> = vertices
+                        .iter()
+                        .map(|vertex| rotation.rotate_vertice(vertex))
+                        .map(|vertex| Vertex {
+                            position: [
+                                vertex.position[0] + x as f32,
+                                vertex.position[1] + tile.height as f32 + {
+                                    if selected.0 as usize == x && selected.1 as usize == y {
+                                        0.25
+                                    } else {
+                                        0.0
+                                    }
+                                },
+                                vertex.position[2] + y as f32,
+                            ],
+                            tex_coords: vertex.tex_coords,
+                        })
+                        .collect();
+                    (vertices, indices)
+                };
+
+                let (vertices, indices) = produce_verts(tile.rotation, self.selected, tile.model);
 
                 let texture = match &tile.model {
                     Model::Floor => self.grass_texture.clone(),
@@ -335,6 +339,13 @@ impl Scene {
                 };
 
                 self.spritebatch.push_verts(&vertices, indices, texture);
+
+                if let Model::Corner = tile.model {
+                    let (vertices, indices) =
+                        produce_verts(TileRotation::Zero, self.selected, Model::Floor);
+                    let texture = self.grass_texture.clone();
+                    self.spritebatch.push_verts(&vertices, &indices, texture);
+                }
             }
         }
 

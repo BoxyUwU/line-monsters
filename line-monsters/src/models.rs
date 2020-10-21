@@ -40,6 +40,56 @@ pub mod wall {
     ];
 }
 
+pub mod inner_corner {
+    use crate::renderer::Vertex;
+
+    pub const ORIGIN: [f32; 3] = [0.5, 0.5, 0.5];
+
+    #[rustfmt::skip]
+    pub const VERTS: &[Vertex] = &[
+        // Side one
+        Vertex { position: offset![ORIGIN, 0.0, 1.0, 1.0], tex_coords: [0.0, 0.0] }, // 0
+        Vertex { position: offset![ORIGIN, 0.25, 0.875, 1.0], tex_coords: [0.0, 0.25] }, // 1
+        Vertex { position: offset![ORIGIN, 0.75, 0.125, 1.0], tex_coords: [0.0, 0.75] }, // 2
+        Vertex { position: offset![ORIGIN, 1.0, 0.0, 1.0], tex_coords: [0.0, 1.0]}, // 3
+
+        Vertex { position: offset![ORIGIN, 0.0, 1.0, 0.0], tex_coords: [1.0, 0.0] }, // 4
+        Vertex { position: offset![ORIGIN, 0.25, 0.875, 0.25], tex_coords: [0.75, 0.25] }, // 5
+        Vertex { position: offset![ORIGIN, 0.75, 0.125, 0.75], tex_coords: [0.25, 0.75] }, // 6
+
+        // Side two
+        Vertex { position: offset![ORIGIN, 1.0, 1.0, 0.0], tex_coords: [1.0, 0.0] }, // 7
+        Vertex { position: offset![ORIGIN, 1.0, 0.875, 0.25], tex_coords: [1.0, 0.25] }, // 8
+        Vertex { position: offset![ORIGIN, 1.0, 0.125, 0.75], tex_coords: [1.0, 0.75] }, // 9
+        Vertex { position: offset![ORIGIN, 1.0, 0.0, 1.0], tex_coords: [1.0, 1.0]}, // 10
+
+        Vertex { position: offset![ORIGIN, 0.0, 1.0, 0.0], tex_coords: [0.0, 0.0] }, // 11
+        Vertex { position: offset![ORIGIN, 0.25, 0.875, 0.25], tex_coords: [0.25, 0.25] }, // 12
+        Vertex { position: offset![ORIGIN, 0.75, 0.125, 0.75], tex_coords: [0.75, 0.75] }, // 13
+    ];
+
+    #[rustfmt::skip]
+    pub const INDICES: &[u16] = &[
+        // Side one
+        0, 1, 4,
+        4, 1, 5,
+
+        1, 2, 5,
+        5, 2, 6,
+
+        2, 3, 6,
+
+        // Side two
+        11, 12, 7,
+        7, 12, 8,
+
+        12, 13, 8,
+        8, 13, 9,
+
+        13, 10, 9,
+    ];
+}
+
 pub mod corner {
     use crate::renderer::Vertex;
 
@@ -61,8 +111,8 @@ pub mod corner {
         Vertex { position: offset![ORIGIN, 1.0, 0.0, 0.0], tex_coords: [1.0, 1.0] }, // 6
 
         // CORNER TOP
-        Vertex { position: offset![ORIGIN, 0.5, 0.125, 0.625], tex_coords: [0.4, 0.875] }, // 7
-        Vertex { position: offset![ORIGIN, 0.625, 0.125, 0.5], tex_coords: [0.6, 0.875] }, // 8
+        Vertex { position: offset![ORIGIN, 0.5, 0.125, 0.625], tex_coords: [0.45, 0.875] }, // 7
+        Vertex { position: offset![ORIGIN, 0.625, 0.125, 0.5], tex_coords: [0.55, 0.875] }, // 8
 
         // CORNER BOTTOM
         Vertex { position: offset![ORIGIN, 0.5, 0.0, 0.875], tex_coords: [0.35, 1.0] }, // 9
