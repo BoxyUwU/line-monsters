@@ -29,7 +29,9 @@ pub struct State {
 
     depth_texture: Arc<texture::Texture>,
 
+    #[allow(dead_code)]
     render_texture_depth_texture: Arc<texture::Texture>,
+    #[allow(dead_code)]
     render_texture: Arc<texture::Texture>,
 
     pub spritebatch_buffers: Vec<(

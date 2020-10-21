@@ -5,6 +5,8 @@ use std::sync::Arc;
 use wgpu::{Device, Queue};
 use winit::event::{ElementState, KeyboardInput, VirtualKeyCode, WindowEvent};
 
+mod map;
+
 #[derive(Copy, Clone, Debug)]
 pub enum Model {
     Wall,
@@ -52,6 +54,11 @@ pub struct Scene {
     move_select_up: bool,
     move_select_down: bool,
 
+    save_map_return: bool,
+
+    raise: bool,
+    lower: bool,
+
     selected: (u8, u8),
     map: [[Tile; 16]; 12],
 }
@@ -67,226 +74,7 @@ impl Scene {
         let ground_wall_texture =
             texture::Texture::from_bytes(&device, &queue, ground_wall_bytes, "ground-wall.png");
 
-        let map = {
-            [
-                [
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                ],
-                [
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                ],
-                [
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                ],
-                [
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                ],
-                [
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                ],
-                [
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                ],
-                [
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                ],
-                [
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                ],
-                [
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                ],
-                [
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                ],
-                [
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                    Tile::new(1, Model::Floor),
-                ],
-                [
-                    Tile::new(0, Model::Wall),
-                    Tile::new(0, Model::Wall),
-                    Tile::new(0, Model::Wall),
-                    Tile::new(0, Model::Wall),
-                    Tile::new(0, Model::Wall),
-                    Tile::new(0, Model::Wall),
-                    Tile::new(0, Model::Wall),
-                    Tile::new(0, Model::Wall),
-                    Tile::new(0, Model::Wall),
-                    Tile::new(0, Model::Wall),
-                    Tile::new(0, Model::Wall),
-                    Tile::new(0, Model::Wall),
-                    Tile::new(0, Model::Wall),
-                    Tile::new(0, Model::Wall),
-                    Tile::new(0, Model::Wall),
-                    Tile::new(0, Model::Corner),
-                ],
-            ]
-        };
+        let map = map::map();
 
         Self {
             spritebatch,
@@ -297,6 +85,11 @@ impl Scene {
             move_select_left: false,
             move_select_right: false,
             move_select_up: false,
+
+            save_map_return: false,
+
+            raise: false,
+            lower: false,
 
             selected: (0, 0),
             map,
@@ -330,6 +123,18 @@ impl Scene {
                     }
                     VirtualKeyCode::Right => {
                         self.move_select_right = is_pressed;
+                        true
+                    }
+                    VirtualKeyCode::Return => {
+                        self.save_map_return = is_pressed;
+                        true
+                    }
+                    VirtualKeyCode::Space => {
+                        self.raise = is_pressed;
+                        true
+                    }
+                    VirtualKeyCode::LControl => {
+                        self.lower = is_pressed;
                         true
                     }
                     _ => false,
@@ -378,8 +183,32 @@ impl Scene {
         if self.move_select_right && self.selected.0 < 15 {
             self.selected.0 += 1;
         }
+        self.move_select_up = false;
+        self.move_select_down = false;
+        self.move_select_left = false;
+        self.move_select_right = false;
 
-        self.serialize_map();
+        if self.save_map_return {
+            self.serialize_map();
+        }
+        self.save_map_return = false;
+
+        if self.raise {
+            let tile = &mut (&mut self.map[self.selected.1 as usize])[self.selected.0 as usize];
+            if tile.height != u8::MAX {
+                tile.height += 1;
+            }
+        }
+
+        if self.lower {
+            let tile = &mut (&mut self.map[self.selected.1 as usize])[self.selected.0 as usize];
+            if tile.height > 0 {
+                tile.height -= 1;
+            }
+        }
+
+        self.raise = false;
+        self.lower = false;
 
         for (y, row_data) in self.map.iter().enumerate() {
             for (x, tile) in row_data.iter().enumerate() {
