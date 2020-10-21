@@ -23,6 +23,14 @@ impl Model {
         }
     }
 
+    fn swap_model(&mut self) {
+        match self {
+            Model::Wall => *self = Model::Floor,
+            Model::Floor => *self = Model::Corner,
+            Model::Corner => *self = Model::Wall,
+        }
+    }
+
     fn serialize(&self) -> &'static str {
         match &self {
             Model::Wall => "Model::Wall",
@@ -32,15 +40,71 @@ impl Model {
     }
 }
 
+/// Counter clockwise
+#[derive(Copy, Clone, Debug)]
+pub enum TileRotation {
+    Zero,
+    Quarter,
+    Half,
+    ThreeQuarters,
+}
+
+impl TileRotation {
+    fn rotate_vertice(&self, vertice: &Vertex) -> Vertex {
+        let rotate_90 = |vertex: Vertex| Vertex {
+            position: [vertex.position[2], vertex.position[1], -vertex.position[0]],
+            tex_coords: vertex.tex_coords,
+        };
+
+        match self {
+            TileRotation::Zero => *vertice,
+            TileRotation::Quarter => rotate_90(*vertice),
+            TileRotation::Half => rotate_90(rotate_90(*vertice)),
+            TileRotation::ThreeQuarters => rotate_90(rotate_90(rotate_90(*vertice))),
+        }
+    }
+
+    fn rotate_next(&mut self) {
+        match self {
+            TileRotation::Zero => *self = TileRotation::Quarter,
+            TileRotation::Quarter => *self = TileRotation::Half,
+            TileRotation::Half => *self = TileRotation::ThreeQuarters,
+            TileRotation::ThreeQuarters => *self = TileRotation::Zero,
+        }
+    }
+
+    fn serialize(&self) -> &'static str {
+        match &self {
+            TileRotation::Zero => "TileRotation::Zero",
+            TileRotation::Quarter => "TileRotation::Quarter",
+            TileRotation::Half => "TileRotation::Half",
+            TileRotation::ThreeQuarters => "TileRotation::ThreeQuarters",
+        }
+    }
+}
+
 #[derive(Copy, Clone, Debug)]
 pub struct Tile {
     height: u8,
     model: Model,
+    rotation: TileRotation,
 }
 
 impl Tile {
     fn new(height: u8, model: Model) -> Self {
-        Self { height, model }
+        Self {
+            height,
+            model,
+            rotation: TileRotation::Zero,
+        }
+    }
+
+    fn new_rotation(height: u8, model: Model, rotation: TileRotation) -> Self {
+        Self {
+            height,
+            model,
+            rotation,
+        }
     }
 }
 
@@ -58,6 +122,10 @@ pub struct Scene {
 
     raise: bool,
     lower: bool,
+
+    swap_model: bool,
+
+    rotate_tile: bool,
 
     selected: (u8, u8),
     map: [[Tile; 16]; 12],
@@ -90,6 +158,10 @@ impl Scene {
 
             raise: false,
             lower: false,
+
+            swap_model: false,
+
+            rotate_tile: false,
 
             selected: (0, 0),
             map,
@@ -137,6 +209,14 @@ impl Scene {
                         self.lower = is_pressed;
                         true
                     }
+                    VirtualKeyCode::X => {
+                        self.swap_model = is_pressed;
+                        true
+                    }
+                    VirtualKeyCode::R => {
+                        self.rotate_tile = is_pressed;
+                        true
+                    }
                     _ => false,
                 }
             }
@@ -145,14 +225,19 @@ impl Scene {
     }
 
     fn serialize_map(&self) {
-        let create_tile_str = |height: u8, model: Model| {
-            format!("Tile::new({}, {}),", height.to_string(), model.serialize())
+        let create_tile_str = |height: u8, model: Model, rotation: TileRotation| {
+            format!(
+                "Tile::new_rotation({}, {}, {}),",
+                height.to_string(),
+                model.serialize(),
+                rotation.serialize()
+            )
         };
 
         let create_row_str = |row: &[Tile]| {
             let mut row_string = "[".to_owned();
             for tile in row.iter() {
-                let tile_str = create_tile_str(tile.height, tile.model);
+                let tile_str = create_tile_str(tile.height, tile.model, tile.rotation);
                 row_string.push_str(&tile_str);
             }
             row_string.push_str("],");
@@ -210,11 +295,24 @@ impl Scene {
         self.raise = false;
         self.lower = false;
 
+        if self.swap_model {
+            let tile = &mut (&mut self.map[self.selected.1 as usize])[self.selected.0 as usize];
+            tile.model.swap_model();
+        }
+        self.swap_model = false;
+
+        if self.rotate_tile {
+            let tile = &mut (&mut self.map[self.selected.1 as usize])[self.selected.0 as usize];
+            tile.rotation.rotate_next();
+        }
+        self.rotate_tile = false;
+
         for (y, row_data) in self.map.iter().enumerate() {
             for (x, tile) in row_data.iter().enumerate() {
                 let (vertices, indices) = tile.model.get_model();
                 let vertices: Vec<_> = vertices
                     .iter()
+                    .map(|vertex| tile.rotation.rotate_vertice(vertex))
                     .map(|vertex| Vertex {
                         position: [
                             vertex.position[0] + x as f32,

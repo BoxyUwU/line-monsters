@@ -17,13 +17,13 @@ pub mod wall {
     #[rustfmt::skip]
     pub const VERTS: &[Vertex] = &[
         Vertex { position: offset![ORIGIN, 0.0, 1.0, 0.0], tex_coords: [0.0, 0.0] },
-        Vertex { position: offset![ORIGIN, 0.0, 0.875, 0.25], tex_coords: [0.0, 0.125] },
-        Vertex { position: offset![ORIGIN, 0.0, 0.125, 0.75], tex_coords: [0.0, 0.875] },
+        Vertex { position: offset![ORIGIN, 0.0, 0.875, 0.25], tex_coords: [0.0, 0.25] },
+        Vertex { position: offset![ORIGIN, 0.0, 0.125, 0.75], tex_coords: [0.0, 0.75] },
         Vertex { position: offset![ORIGIN, 0.0, 0.0, 1.0], tex_coords: [0.0, 1.0]},
         
         Vertex { position: offset![ORIGIN, 1.0, 1.0, 0.0], tex_coords: [1.0, 0.0] },
-        Vertex { position: offset![ORIGIN, 1.0, 0.875, 0.25], tex_coords: [1.0, 0.125] },
-        Vertex { position: offset![ORIGIN, 1.0, 0.125, 0.75], tex_coords: [1.0, 0.875] },
+        Vertex { position: offset![ORIGIN, 1.0, 0.875, 0.25], tex_coords: [1.0, 0.25] },
+        Vertex { position: offset![ORIGIN, 1.0, 0.125, 0.75], tex_coords: [1.0, 0.75] },
         Vertex { position: offset![ORIGIN, 1.0, 0.0, 1.0], tex_coords: [1.0, 1.0]},
     ];
 
