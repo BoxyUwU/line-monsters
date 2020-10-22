@@ -909,6 +909,7 @@ dependencies = [
  "futures",
  "glob",
  "image",
+ "nanoserde",
  "shaderc",
  "ultraviolet",
  "wgpu",
@@ -1067,6 +1068,19 @@ dependencies = [
  "spirv_headers",
  "thiserror",
 ]
+
+[[package]]
+name = "nanoserde"
+version = "0.1.20"
+source = "git+https://github.com/EllenNyan/nanoserde#10efbbb7ae7bc936174e317e6b042ca3afce9c1b"
+dependencies = [
+ "nanoserde-derive",
+]
+
+[[package]]
+name = "nanoserde-derive"
+version = "0.1.12"
+source = "git+https://github.com/EllenNyan/nanoserde#10efbbb7ae7bc936174e317e6b042ca3afce9c1b"
 
 [[package]]
 name = "ndk"
